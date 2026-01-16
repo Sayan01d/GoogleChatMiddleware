@@ -1,10 +1,9 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 import requests
 import os
 
 app = Flask(__name__)
 
-# Salesforce webhook URL (set in Render environment variables)
 SALESFORCE_WEBHOOK_URL = os.getenv('SALESFORCE_WEBHOOK_URL')
 
 @app.route('/')
@@ -17,23 +16,18 @@ def google_chat_webhook():
         payload = request.get_json()
         print(f"Received from Google Chat: {payload}")
         
-        # Extract chat data from Google's payload structure
         chat_data = payload.get('chat', {})
         message_payload = chat_data.get('messagePayload', {})
         
-        # Check if this is a message event
         if message_payload:
-            # Extract message details
             message = message_payload.get('message', {})
             space = message_payload.get('space', {})
             
-            # Get the text and space info
             formatted_text = message.get('formattedText', '')
-            argument_text = message.get('argumentText', '')  # Text without @mention
-            space_name = space.get('name', '')  # Format: "spaces/AAQAOD4O8h4"
+            argument_text = message.get('argumentText', '')
+            space_name = space.get('name', '')
             space_display_name = space.get('displayName', '')
             
-            # Get sender info
             sender = message.get('sender', {})
             sender_name = sender.get('displayName', '')
             sender_email = sender.get('email', '')
@@ -42,7 +36,6 @@ def google_chat_webhook():
             print(f"Space: {space_name}")
             print(f"Sender: {sender_name} ({sender_email})")
             
-            # Build payload for Salesforce in the format it expects
             salesforce_payload = {
                 'type': 'MESSAGE',
                 'message': {
@@ -61,7 +54,6 @@ def google_chat_webhook():
             
             print(f"Sending to Salesforce: {salesforce_payload}")
             
-            # Forward to Salesforce
             headers = {
                 'Content-Type': 'application/json'
             }
@@ -74,15 +66,18 @@ def google_chat_webhook():
             
             print(f"Salesforce response: {response.status_code} - {response.text}")
             
-            return jsonify({'text': 'Message received and forwarded to Salesforce!'}), 200
+            # Return empty JSON to Google Chat (Salesforce sends reply via API)
+            if response.status_code == 200:
+                return Response('{}', status=200, mimetype='application/json')
+            else:
+                return Response('{}', status=200, mimetype='application/json')
         
         else:
-            # Handle other events (ADDED_TO_SPACE, REMOVED_FROM_SPACE, etc.)
-            return jsonify({'text': 'Event received.'}), 200
+            return Response('{}', status=200, mimetype='application/json')
             
     except Exception as e:
         print(f"Error: {str(e)}")
-        return jsonify({'text': f'Error: {str(e)}'}), 200
+        return Response('{}', status=200, mimetype='application/json')
 
 @app.route('/health', methods=['GET'])
 def health_check():
