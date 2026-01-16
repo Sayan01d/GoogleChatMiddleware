@@ -19,6 +19,7 @@ def google_chat_webhook():
     try:
         # Get the payload from Google Chat
         payload = request.get_json()
+        print(f"Headers: {request.headers} ")
         print(f"Received from Google Chat: {payload}")
         
         # Get event type
