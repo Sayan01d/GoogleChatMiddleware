@@ -13,45 +13,72 @@ def home():
 
 @app.route('/webhook', methods=['POST'])
 def google_chat_webhook():
-    """
-    Receives webhook from Google Chat and forwards to Salesforce
-    """
     try:
-        # Get the payload from Google Chat
         payload = request.get_json()
-        print(f"Headers: {request.headers} ")
         print(f"Received from Google Chat: {payload}")
         
-        # Get event type
-        event_type = payload.get('type', '')
+        # Extract chat data from Google's payload structure
+        chat_data = payload.get('chat', {})
+        message_payload = chat_data.get('messagePayload', {})
         
-        # Only process MESSAGE events
-        if event_type == 'MESSAGE':
-            # Forward to Salesforce (without Google's auth header)
+        # Check if this is a message event
+        if message_payload:
+            # Extract message details
+            message = message_payload.get('message', {})
+            space = message_payload.get('space', {})
+            
+            # Get the text and space info
+            formatted_text = message.get('formattedText', '')
+            argument_text = message.get('argumentText', '')  # Text without @mention
+            space_name = space.get('name', '')  # Format: "spaces/AAQAOD4O8h4"
+            space_display_name = space.get('displayName', '')
+            
+            # Get sender info
+            sender = message.get('sender', {})
+            sender_name = sender.get('displayName', '')
+            sender_email = sender.get('email', '')
+            
+            print(f"Message: {formatted_text}")
+            print(f"Space: {space_name}")
+            print(f"Sender: {sender_name} ({sender_email})")
+            
+            # Build payload for Salesforce in the format it expects
+            salesforce_payload = {
+                'type': 'MESSAGE',
+                'message': {
+                    'text': formatted_text,
+                    'argumentText': argument_text,
+                    'sender': {
+                        'displayName': sender_name,
+                        'email': sender_email
+                    }
+                },
+                'space': {
+                    'name': space_name,
+                    'displayName': space_display_name
+                }
+            }
+            
+            print(f"Sending to Salesforce: {salesforce_payload}")
+            
+            # Forward to Salesforce
             headers = {
                 'Content-Type': 'application/json'
             }
             
-            # Forward the payload to Salesforce
             response = requests.post(
                 SALESFORCE_WEBHOOK_URL,
-                json=payload,
+                json=salesforce_payload,
                 headers=headers
             )
             
             print(f"Salesforce response: {response.status_code} - {response.text}")
             
-            # Return success to Google Chat
             return jsonify({'text': 'Message received and forwarded to Salesforce!'}), 200
         
-        elif event_type == 'ADDED_TO_SPACE':
-            return jsonify({'text': 'Thanks for adding me! I am connected to Salesforce.'}), 200
-        
-        elif event_type == 'REMOVED_FROM_SPACE':
-            return jsonify({}), 200
-        
         else:
-            return jsonify({}), 200
+            # Handle other events (ADDED_TO_SPACE, REMOVED_FROM_SPACE, etc.)
+            return jsonify({'text': 'Event received.'}), 200
             
     except Exception as e:
         print(f"Error: {str(e)}")
