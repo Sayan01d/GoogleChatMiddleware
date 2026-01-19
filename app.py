@@ -14,6 +14,7 @@ def home():
 def google_chat_webhook():
     try:
         payload = request.get_json()
+        print(f"Headers:{request.headers}")
         print(f"Received from Google Chat: {payload}")
         
         chat_data = payload.get('chat', {})
@@ -32,10 +33,6 @@ def google_chat_webhook():
             sender_name = sender.get('displayName', '')
             sender_email = sender.get('email', '')
             
-            print(f"Message: {formatted_text}")
-            print(f"Space: {space_name}")
-            print(f"Sender: {sender_name} ({sender_email})")
-            
             salesforce_payload = {
                 'type': 'MESSAGE',
                 'message': {
@@ -51,8 +48,6 @@ def google_chat_webhook():
                     'displayName': space_display_name
                 }
             }
-            
-            print(f"Sending to Salesforce: {salesforce_payload}")
             
             headers = {
                 'Content-Type': 'application/json'
